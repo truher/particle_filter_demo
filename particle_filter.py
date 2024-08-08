@@ -11,6 +11,7 @@ from __future__ import absolute_import
 import random
 import math
 import bisect
+import time
 
 from draw import Maze
 
@@ -28,7 +29,19 @@ maze_data = ( ( 2, 0, 1, 0, 0 ),
 # 1 - occupied square
 # 2 - occupied square with a beacon at each corner, detectable by the robot
 
-maze_data = ( ( 1, 1, 0, 0, 2, 0, 0, 0, 0, 1 ),
+maze_data = ( ( 2, 0, 0, 0, 0 ),
+              ( 0, 0, 0, 0, 0 ),
+              ( 0, 0, 0, 0, 0 ),
+              ( 0, 0, 0, 0, 0 ),
+              ( 2, 0, 0, 0, 0 ))
+
+maze_data3 = ( ( 2, 0, 1, 0, 0 ),
+              ( 0, 0, 0, 0, 1 ),
+              ( 1, 1, 1, 0, 0 ),
+              ( 1, 0, 0, 0, 0 ),
+              ( 0, 0, 2, 0, 1 ))
+
+maze_data2 = ( ( 1, 1, 0, 0, 2, 0, 0, 0, 0, 1 ),
               ( 1, 2, 0, 0, 1, 1, 0, 0, 0, 0 ),
               ( 0, 1, 1, 0, 0, 0, 0, 1, 0, 1 ),
               ( 0, 0, 0, 0, 1, 0, 0, 1, 1, 2 ),
@@ -39,9 +52,9 @@ maze_data = ( ( 1, 1, 0, 0, 2, 0, 0, 0, 0, 1 ),
               ( 0, 0, 0, 0, 1, 0, 0, 0, 1, 0 ),
               ( 0, 0, 1, 0, 0, 2, 1, 1, 1, 0 ))
 
-PARTICLE_COUNT = 2000    # Total number of particles
+PARTICLE_COUNT = 1000    # Total number of particles
 
-ROBOT_HAS_COMPASS = True # Does the robot know where north is? If so, it
+ROBOT_HAS_COMPASS = False #True # Does the robot know where north is? If so, it
 # makes orientation a lot easier since it knows which direction it is facing.
 # If not -- and that is really fascinating -- the particle filter can work
 # out its heading too, it just takes more particles and more time. Try this
@@ -63,9 +76,12 @@ def add_some_noise(*coords):
 # This is just a gaussian kernel I pulled out of my hat, to transform
 # values near to robbie's measurement => 1, further away => 0
 sigma2 = 0.9 ** 2
+# a and b are lists now
 def w_gauss(a, b):
-    error = a - b
-    g = math.e ** -(error ** 2 / (2 * sigma2))
+    sqsum = 0
+    for aa, bb in zip(a,b):
+        sqsum += (aa-bb)*(aa-bb)
+    g = math.e ** -(sqsum / (2 * sigma2))
     return g
 
 # ------------------------------------------------------------------------
@@ -144,9 +160,10 @@ class Particle(object):
 
     def read_sensor(self, maze):
         """
-        Find distance to nearest beacon.
+        Find distance to all beacons.
         """
-        return maze.distance_to_nearest_beacon(*self.xy)
+        #return maze.distance_to_nearest_beacon(*self.xy)
+        return maze.all_beacon_distance(*self.xy)
 
     def advance_by(self, speed, checker=None, noisy=False):
         h = self.h
@@ -167,10 +184,11 @@ class Particle(object):
 
 # ------------------------------------------------------------------------
 class Robot(Particle):
-    speed = 0.2
+    speed = 0.0
 
     def __init__(self, maze):
-        super(Robot, self).__init__(*maze.random_free_place(), heading=90)
+        #super(Robot, self).__init__(*maze.random_free_place(), heading=90)
+        super(Robot, self).__init__(2, 2, heading=90)
         self.chose_random_direction()
         self.step_count = 0
 
@@ -178,13 +196,13 @@ class Robot(Particle):
         heading = random.uniform(0, 360)
         self.h = heading
 
-    def read_sensor(self, maze):
-        """
-        Poor robot, it's sensors are noisy and pretty strange,
-        it only can measure the distance to the nearest beacon(!)
-        and is not very accurate at that too!
-        """
-        return add_little_noise(super(Robot, self).read_sensor(maze))[0]
+#    def read_sensor(self, maze):
+#        """
+#        Poor robot, it's sensors are noisy and pretty strange,
+#        it only can measure the distance to the nearest beacon(!)
+#        and is not very accurate at that too!
+#        """
+#        return add_little_noise(super(Robot, self).read_sensor(maze))[0]
 
     def move(self, maze):
         """
@@ -192,7 +210,7 @@ class Robot(Particle):
         """
         while True:
             self.step_count += 1
-            if self.advance_by(self.speed, noisy=True,
+            if self.advance_by(self.speed, noisy=False,
                 checker=lambda r, dx, dy: maze.is_free(r.x+dx, r.y+dy)):
                 break
             # Bumped into something or too long in same direction,
@@ -209,13 +227,17 @@ particles = Particle.create_random(PARTICLE_COUNT, world)
 robbie = Robot(world)
 
 while True:
+    # time per iteration
+    t0 = time.time_ns()
     # Read robbie's sensor
+    # this is now a list
     r_d = robbie.read_sensor(world)
 
     # Update particle weight according to how good every particle matches
     # robbie's sensor reading
     for p in particles:
         if world.is_free(*p.xy):
+            # a list
             p_d = p.read_sensor(world)
             p.w = w_gauss(r_d, p_d)
         else:
@@ -263,3 +285,8 @@ while True:
     for p in particles:
         p.h += d_h # in case robot changed heading, swirl particle heading too
         p.advance_by(robbie.speed)
+
+    t1 = time.time_ns()
+    duration = t1 - t0
+    print(f"duration (us): {duration//1000}")
+    print(f"duration per particle (us): {duration//(1000*PARTICLE_COUNT)}")

@@ -36,7 +36,8 @@ class Maze(object):
                     nb_y = self.height - y - 1
                     self.blocks.append((x, nb_y))
                     if block == 2:
-                        self.beacons.extend(((x, nb_y), (x+1, nb_y), (x, nb_y+1), (x+1, nb_y+1)))
+                        #self.beacons.extend(((x, nb_y), (x+1, nb_y), (x, nb_y+1), (x+1, nb_y+1)))
+                        self.beacons.extend(((x+0.5, nb_y+0.5),))
 
     def draw(self):
         for x, y in self.blocks:
@@ -54,7 +55,7 @@ class Maze(object):
         turtle.color("#00ffff")
         for x, y in self.beacons:
             turtle.setposition(x, y)
-            turtle.dot()
+            turtle.dot(10)
         turtle.update()
 
     def weight_to_color(self, weight):
@@ -137,4 +138,10 @@ class Maze(object):
                 d = distance
                 d_x, d_y = c_x, c_y
 
+        return d
+
+    def all_beacon_distance(self, x, y):
+        d = []
+        for c_x, c_y in self.beacons:
+            d.append(self.distance(c_x, c_y, x, y))
         return d
