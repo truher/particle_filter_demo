@@ -52,7 +52,7 @@ maze_data2 = ( ( 1, 1, 0, 0, 2, 0, 0, 0, 0, 1 ),
               ( 0, 0, 0, 0, 1, 0, 0, 0, 1, 0 ),
               ( 0, 0, 1, 0, 0, 2, 1, 1, 1, 0 ))
 
-PARTICLE_COUNT = 1000    # Total number of particles
+PARTICLE_COUNT = 50    # Total number of particles
 
 ROBOT_HAS_COMPASS = False #True # Does the robot know where north is? If so, it
 # makes orientation a lot easier since it knows which direction it is facing.
@@ -68,14 +68,14 @@ def add_noise(level, *coords):
     return [x + random.uniform(-level, level) for x in coords]
 
 def add_little_noise(*coords):
-    return add_noise(0.02, *coords)
+    return add_noise(0.002, *coords)
 
 def add_some_noise(*coords):
-    return add_noise(0.1, *coords)
+    return add_noise(0.01, *coords)
 
 # This is just a gaussian kernel I pulled out of my hat, to transform
 # values near to robbie's measurement => 1, further away => 0
-sigma2 = 0.9 ** 2
+sigma2 = 0.1 ** 2
 # a and b are lists now
 def w_gauss(a, b):
     sqsum = 0
@@ -184,7 +184,7 @@ class Particle(object):
 
 # ------------------------------------------------------------------------
 class Robot(Particle):
-    speed = 0.0
+    speed = 0.01
 
     def __init__(self, maze):
         #super(Robot, self).__init__(*maze.random_free_place(), heading=90)
